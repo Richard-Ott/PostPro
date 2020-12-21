@@ -24,7 +24,7 @@ addpath '..\data'
 
 % USER CHOICE ----------------------------------------------------------- %
 nuclide = '10Be';       % Choose '10Be' or '36Cl'
-export = 0;             % do you want to save figures and model.data
+export = 1;             % do you want to save figures and model.data
 n = 5e3;                % number of runs
 
 %% assign data and constants -------------------------------------------- %
@@ -119,8 +119,8 @@ end
 Model = struct();
 Model.depths = [0];          % depths of constrained layers, first should always be 0 for surface (cm)
 Model.depths_uncerts = [0];
-Model.ages = [10e3];         % ages of constrained layers in yrs
-Model.age_uncerts = [2e3];   % age uncertainty of constrained layers in yrs
+Model.ages = [55e3];         % ages of constrained layers in yrs
+Model.age_uncerts = [5e3];   % age uncertainty of constrained layers in yrs
 % add constraints from main sample to additional ones
 Model.depths = [Model.depths;depth];   depth = Model.depths;
 Model.depths_uncerts = [Model.depths_uncerts; depth_uncert]; depth_uncert = Model.depths_uncerts;
@@ -138,14 +138,14 @@ for i = 1:n
         % RANDOM SAMPLING ----------------------------------------------- %
         % Random sampling of the different parameters from a normal distribution for each of the n realisations of the simulation.
         % The ages of the core are sampled randomely within the uncertainty bounds of the dating provided to the function in Depth_age
-        section_depth = round(normrnd(depth,depth_uncert));  % depth in cm
-        Depth_age_guess = [section_depth,round(normrnd(age,age_uncert))];	% depth, age, matrix
+        section_depth = round(normrnd(depth(end),depth_uncert(end)));  % depth in cm
+        Depth_age_guess = [[depth(1:end-1);section_depth],round(normrnd(age,age_uncert))];	% depth, age, matrix
 
         % if there's an age inversion, take a new sample
         counter = 0;
         while any(diff(Depth_age_guess(:,2)) < 0)
-            section_depth = normrnd(depth,depth_uncert);  % depth in cm
-            Depth_age_guess = [section_depth,round(normrnd(age,age_uncert))];
+            section_depth = round(normrnd(depth(end),depth_uncert(end)));  % depth in cm
+            Depth_age_guess = [[depth(1:end-1);section_depth],round(normrnd(age,age_uncert))];
             counter = counter + 1;
             if counter > 1e4
                 error("Couldn't sample a sequence without age inversion. Check yourage priors. ")
@@ -240,7 +240,7 @@ for i = 1:n
             end
 
             % The result is added to the production vector
-            profile((section_depth-length(tmp_depth)+1):section_depth) = profile((section_depth-length(tmp_depth)+1):section_depth) + tmp_conc;
+            profile((section_depth-length(tmp_depth)+1):section_depth) = profile((section_depth-length(tmp_depth)+1):section_depth) + tmp_conc';
         end
         Production(i) = profile(end);
     % Increment progress bar
@@ -248,17 +248,19 @@ for i = 1:n
 end
 close(wb)
 
-Pmean = mean(Production);
-Pmedian = median(Production);
-Pstd = std(Production);
-% Pquantiles = quantile(Production,[0.022,0.977],2);
+Pmean = round(mean(Production));
+Pmedian = round(median(Production));
+Pstd = round(std(Production));
+Pquantiles = round(quantile(Production,[0.17,0.83]));
 disp(['postburial production = ' num2str(Pmean) ' +/- ' num2str(Pstd)]) 
+disp(['postburial production = ' num2str(Pmedian) ' +/- ' num2str(diff(Pquantiles)/2)]) 
+
 
 %% EXPORT THE DATA
 if export
-    filename = input('What name do you want to give this run for saving? ');
+    filename = input('What name do you want to give this run for saving? ','s');
 %     print(['PostburialProd_' name '_' filename '.eps'], '-depsc', '-painters') % save figure
-    savefig(h,['./output/PostburialProd_' ,name{1} ,'_' ,filename, '.fig'])
+%     savefig(h,['./output/PostburialProd_' ,name{1} ,'_' ,filename, '.fig'])
 
     % add all parameters to model
     Model.density = rho;
@@ -270,6 +272,8 @@ if export
     Model.nruns = n;
     Model.mean_postburial = Pmean;
     Model.sd_postburial = Pstd;
+    Model.median = Pmedian;
+    Model.quants1783 = Pquantiles;
 
-    save(['./output/PostburialProd_' name{1} '_' num2str(filename) '.mat'], 'model')                % save model parameters
+    save(['./output/PostburialProd_' name{1} '_' num2str(filename) '.mat'], 'Model')                % save model parameters
 end
