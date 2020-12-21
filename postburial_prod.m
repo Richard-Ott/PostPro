@@ -140,15 +140,15 @@ for i = 1:n
         % RANDOM SAMPLING ----------------------------------------------- %
         % Random sampling of the different parameters from a normal distribution for each of the n realisations of the simulation.
         % The ages of the core are sampled randomely within the uncertainty bounds of the dating provided to the function in Depth_age
-        Depth_age_guess = [normrnd(depth,depth_uncert),round(normrnd(age,age_uncert))];	% depth, age, matrix
-%         Depth_age_guess = [depth,round(normrnd(age,age_uncert))];	% depth, age, matrix
+%         Depth_age_guess = [normrnd(depth,depth_uncert),round(normrnd(age,age_uncert))];	% depth, age, matrix
+        Depth_age_guess = [depth,round(normrnd(age,age_uncert))];	% depth, age, matrix
 
 
         % if there's an age inversion, take a new sample
         counter = 0;
         while any(diff(Depth_age_guess(:,2)) < 0)
-            Depth_age_guess = [normrnd(depth,depth_uncert),round(normrnd(age,age_uncert))];
-%             Depth_age_guess = [depth,round(normrnd(age,age_uncert))];
+%             Depth_age_guess = [normrnd(depth,depth_uncert),round(normrnd(age,age_uncert))];
+            Depth_age_guess = [depth,round(normrnd(age,age_uncert))];
             counter = counter + 1;
             if counter > 1e4
                 error("Couldn't sample a sequence without age inversion. Check yourage priors. ")
