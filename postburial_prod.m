@@ -129,10 +129,8 @@ Model.age_uncerts = [Model.age_uncerts;age_uncert]; age_uncert = Model.age_uncer
 
 
 %% START FORWARD MODELS ------------------------------------------------- %
-% depth in cm -----------------------------
-section_depth = length(Model.depths(1):Model.depths(end))-1;
 % Final Storage matrix
-Production = zeros(section_depth,n);
+Production = zeros(1,n);
 % Initialize a progress bar to monitor the progression of the number of simulations n
 wb = waitbar(0,'Welcome to the jungle...');
 
@@ -140,15 +138,14 @@ for i = 1:n
         % RANDOM SAMPLING ----------------------------------------------- %
         % Random sampling of the different parameters from a normal distribution for each of the n realisations of the simulation.
         % The ages of the core are sampled randomely within the uncertainty bounds of the dating provided to the function in Depth_age
-        Depth_age_guess = [normrnd(depth,depth_uncert),round(normrnd(age,age_uncert))];	% depth, age, matrix
-%         Depth_age_guess = [depth,round(normrnd(age,age_uncert))];	% depth, age, matrix
-
+        section_depth = round(normrnd(depth,depth_uncert));  % depth in cm
+        Depth_age_guess = [section_depth,round(normrnd(age,age_uncert))];	% depth, age, matrix
 
         % if there's an age inversion, take a new sample
         counter = 0;
         while any(diff(Depth_age_guess(:,2)) < 0)
-            Depth_age_guess = [normrnd(depth,depth_uncert),round(normrnd(age,age_uncert))];
-%             Depth_age_guess = [depth,round(normrnd(age,age_uncert))];
+            section_depth = normrnd(depth,depth_uncert);  % depth in cm
+            Depth_age_guess = [section_depth,round(normrnd(age,age_uncert))];
             counter = counter + 1;
             if counter > 1e4
                 error("Couldn't sample a sequence without age inversion. Check yourage priors. ")
@@ -226,6 +223,7 @@ for i = 1:n
         % The production of nuclides is computed from bottom to top (the loop indices decreases).
         % Each part of the loop calculates the nuclide production of a given layer as well as all layers under it.
         % Each iteration is then summed with the previous one
+        profile = zeros(1,section_depth);
         for k =  length(Sed_col):-1:1
             % For each layer temporary depth, density, time and concentrtaion vectors are created
             % These vectors are made such that each element of the vector corresponds to 1 cm.
@@ -242,39 +240,20 @@ for i = 1:n
             end
 
             % The result is added to the production vector
-            Production((section_depth-length(tmp_depth)+1):section_depth,i) = Production((section_depth-length(tmp_depth)+1):section_depth,i) + tmp_conc;
+            profile((section_depth-length(tmp_depth)+1):section_depth) = profile((section_depth-length(tmp_depth)+1):section_depth) + tmp_conc;
         end
+        Production(i) = profile(end);
     % Increment progress bar
     waitbar(i/(n),wb)
 end
 close(wb)
 
-Pmean = mean(Production,2);
-Pmedian = median(Production,2);
-Pstd = std(Production,0,2);
+Pmean = mean(Production);
+Pmedian = median(Production);
+Pstd = std(Production);
 % Pquantiles = quantile(Production,[0.022,0.977],2);
+disp(['postburial production = ' num2str(Pmean) ' +/- ' num2str(Pstd)]) 
 
-%% PLOT THE DATA
-h = figure();
-for i = 1:n
-    plot(Production(:,i),-1:-1:-section_depth,'.','Color',[.8,.8,.8])
-	hold on
-end
-plot(Pmedian,-1:-1:-section_depth,'r-')
-plot(Pmean,-1:-1:-section_depth,'b-')
-plot(Pmean-Pstd,-1:-1:-section_depth,'k--')
-plot(Pmean+Pstd,-1:-1:-section_depth,'k--')
-% plot(Pquantiles(:,1),-1:-1:-section_depth,'k--')
-% plot(Pquantiles(:,2),-1:-1:-section_depth,'k--')
-% plot the sample depths
-for i = 1:length(depth)-1
-    hline(-depth(i+1),'k:')
-end
-
-xlabel('Post-burial production - at/g')
-ylabel('Core depth - cm')
-title(name)
-xlim([0,max(Production(:))])
 %% EXPORT THE DATA
 if export
     filename = input('What name do you want to give this run for saving? ');
@@ -289,8 +268,8 @@ if export
     Model.p_thickness = p_thickness;
     Model.p_time = p_time;
     Model.nruns = n;
-    Model.mean_postburial = Pmean(depth);
-    Model.sd_postburial = Pstd(depth);
+    Model.mean_postburial = Pmean;
+    Model.sd_postburial = Pstd;
 
     save(['./output/PostburialProd_' name{1} '_' num2str(filename) '.mat'], 'model')                % save model parameters
 end
