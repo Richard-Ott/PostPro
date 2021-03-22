@@ -15,11 +15,6 @@
 % MAKE ASURE THAT UNITS OF G/CM² COMING OUT OF CRONUS GO WITH MY TREATING
 % OF EVERYTHING  AS LENGTH UNITS...
 
-% PROBABLY NEED TO MODIFY SCALEFACS FUNCTIONS FOR 10 AND 36 SO THAT THEY
-% ARE CUT OFF BY THE RIGHT MOUNT OF TIME AND GO BACK FOR PALEOPRODUCTION
-% PROBABLY NEED TO CALCULATE THE PRODUCTION RATE PROFILE FOR A BUNCH OF
-% TIME SLICES AND INTERPLOATE FOR THE TIMES IN BETWEEN.
-
 
 % Richard Ott, 2020
 clc
@@ -78,47 +73,26 @@ switch nuclide
         age_uncert = num(ind,34)*1e3;  % age uncertainty (yrs)
 
         % CONSTANTS ----------------------------------------------------- %
-        lambda = log(2)/1.39e6;	% decay constant for 10Be
+        lambda = log(2)/1.39e6;	          % decay constant for 10Be
         num(ind,4) = stdatm(elev);        % convert to air pressure
         
     case '36Cl'
 
         ind = input('Enter the number of the sample you want to run (the row within the data file) ');
         inds = ind;
-        % check if there are more samples from this section in the data
-        % file
-        if length(find(geodata(:,7) == geodata(ind,7))) > 1
-            inds = find(geodata(:,7) == geodata(ind,7));  % add indices of other files
-        end
 
-        % update constants
         % CONSTANTS ----------------------------------------------------- %
         lambda = log(2)/3.013e5;% decay constant for 36Cl (Audi, 2017)
-        lat = geodata(ind,1);   % sample latitude
-        elev = geodata(ind,2);  % sample elvation
-        name = raw(ind+1,1);    % sample name
-        age = geodata(inds,5)*1e3;    % sample age in yrs
-        age_uncert = geodata(inds,6)*1e3;
-        depth = geodata(inds,3)*100;  % samle depth
-        sample_chem = data(ind+3,1:66);% sample chemistry
-
+        lat  = num(ind,1);      % sample latitude
+        elev = num(ind,2);      % sample elvation
+        name = txt(ind+1,1);    % sample name
+        age = num(inds,5)*1e3;    % sample age in yrs
+        age_uncert = num(inds,6)*1e3;
+        depth = num(inds,3)*100;  % samle depth
 
         % assign scaling factor for nucleonic and muonic production ----- %
-        pressure = stdatm(elev);        % convert to air pressure
-        % Calculate depth scalings
-        so_e  = exp(-(1:depth(end)) .* rho/att_neut); % depth scaling neutrons
-        so_mu = exp(-(1:depth(end)) .* rho/att_sm);   % depth scaling muons
+        num(XXXX) = stdatm(elev);        % convert to air pressure
 
-        % Depth-scaled PRODUCTION RATES --------------------------------- %
-        P_cosmo = nan(depth(end),1);  % this requires input to be sorted in a way that the younger samples are towards the top of the input file
-        P_rad = nan(depth(end),1);
-        % ignoring fast muons?!
-        for i = 1:depth
-            [P_cosmo(i),P_rad(i)] = clrock_mod(sample_chem,e,att_neut,so_e(i),so_mu(i),EL_f,EL_mu,PsCa,rho); % P_cosmo - cosmogenic and P_rad - radiogenic,
-            % the above does not include attenuation length uncertainty
-            % into the Production rate estimate. However, having this
-            % function within the sam
-        end
 end
 
 % add constraints from main sample to additional ones
@@ -309,16 +283,32 @@ for i = 1:n
             switch nuclide
                 case '10Be'
                     tmp_conc = (Ps(tmp_depth,Pind) + Pmu(tmp_depth,Pind)).*tmp_time;  % Production at/g
-                    tmp_conc = tmp_conc.* (1-exp(-tmp_time.*lambda));      % radioactive decay
+                    tmp_conc = tmp_conc.* exp(-tmp_time.*lambda);      % radioactive decay
                 case '36Cl'
                     tmp_conc = (Ps(tmp_depth,Pind) + Pmu(tmp_depth,Pind) + ...
                         Peth(tmp_depth,Pind) + Pth(tmp_depth,Pind)).*tmp_time;       % Production at/g
-                    tmp_conc = tmp_conc.* (1-exp(-tmp_time.*lambda));      % radioactive decay
+                    tmp_conc = tmp_conc.* exp(-tmp_time.*lambda);      % radioactive decay
             end
 
             % The result is added to the production vector
             profile((section_depth-length(tmp_depth)+1):section_depth) = profile((section_depth-length(tmp_depth)+1):section_depth) + tmp_conc';
         end
+        
+        % add production after end of deposition
+        if Depth_age_guess(1,2) ~= 0 % if there is a no deposition period at the end
+            Pind = round(Depth_age_guess(1,2)/1e2);
+            switch nuclide
+                case '10Be'
+                    profile(end) = profile(end) + (sum(Ps(section_depth,1:Pind) + ...
+                        Pmu(section_depth,1:Pind)).*1e2);        % Production at/g
+                case '36Cl'
+                    profile(end) = profile(end) + (sum(Ps(section_depth,1:Pind) + ...
+                        Pmu(section_depth,1:Pind) + Pth(section_depth,1:Pind) ...
+                    + Peth(section_depth,1:Pind)).*1e2);        % Production at/g
+            end
+            profile(end) = profile(end).* exp(-1e2.*lambda);      % radioactive decay
+        end
+        
         PostProduction(i) = profile(end);
     % Increment progress bar
     waitbar(i/(n),wb)
@@ -341,10 +331,8 @@ if export
 %     savefig(h,['./output/PostburialProd_' ,name{1} ,'_' ,filename, '.fig'])
 
     % add all parameters to model
-    Model.density = rho;
-    Model.att_neut = att_neut;
-    Model.att_fm  = att_fm;
-    Model.att_sm = att_sm;
+    Model.Ps_uncert   = Ps_uncert;
+    Model.Pmu_uncert  = Pmu_uncert;
     Model.p_thickness = p_thickness;
     Model.p_time = p_time;
     Model.nruns = n;
