@@ -10,11 +10,11 @@
 % The code in this branch uses CRONUS to determine production rates.
 % The code is based on an R-script by M. Lupker but is now heavily
 % modified.
-%
 
 % MAKE ASURE THAT UNITS OF G/CM² COMING OUT OF CRONUS GO WITH MY TREATING
 % OF EVERYTHING  AS LENGTH UNITS...
-
+% 
+% MAE URE THAT PRODUCTOIN PROFILE COMES OUT IN CM!!!!
 
 % Richard Ott, 2020
 clc
@@ -26,55 +26,61 @@ addpath '.\subroutines'
 addpath '..\..\..\..\Crete\Cretan_fans\data'
 
 % USER CHOICE ----------------------------------------------------------- %
-nuclide = '10Be';       % Choose '10Be' or '36Cl'
-export = 0;             % do you want to save figures and model data
+nuclide = '36Cl';       % Choose '10Be' or '36Cl'
+export = 1;             % do you want to save figures and model data
 n = 5e3;                % number of runs
-scaling_model = 'sf';   % choose your scaling model, nomenclature follows Cronus
+scaling_model = 'lm';   % choose your scaling model, nomenclature follows Cronus
 
 % load sample data in Cronus excel format
-% [num,txt,~] = xlsread('36Cl_data_CRONUS.xlsx','sheet2');
-[num,txt,~] = xlsread('10Be_data_CRONUS',2);
+[num,txt,~] = xlsread('36Cl_data_CRONUS.xlsx','Matlab Postburial');
+% [num,txt,~] = xlsread('10Be_data_CRONUS',2);
 
 %% assign data and constants -------------------------------------------- %
 p_thickness = 2.06; 	% parameter for power law distribution of sediment layer thickness (Gomez et al., 2002)
 p_time = 1.4;		    % parameter for power law distribution of sediment layer waiting time (Gomez et al., 2002)
 e = 0;                  % erosion rate (mm/yr)
-Ps_uncert  = 0.05;	% relative uncertainty on the spallation production rate
-Pmu_uncert = 0.3;    % relative uncertainty on the muon production rate
-if strcmpi(nuclide,'36Cl')
-    Pth_uncert  = 0.5; % relative uncertainty on the thermal neutron capture production rate
-    Peth_uncert = 0.5; % relative uncertainty on the thermal neutron capture production rate
+
+% Production rate uncertainties
+switch nuclide
+    case '10Be'
+        Ps_uncert = 0.08;       % uncertainty spallation production 10Be (Phillips et al., 2015)
+        Pmu_uncert = 0.3;       % uncertainty muon production 10Be (Phillips 2015 has 10% uncert on f*, I triple this)
+    case '36Cl'
+        Ps_uncert  = 0.065;	    % relative uncertainty on the spallation production rate
+        % average of PsCa and PsK (Cronus v2.1)
+        Pmu_uncert = 0.25;      % relative uncertainty on the muon production rate
+        % I am using the middle between the f*Ca and f*K uncertainty in Marrero, 2016
+        Pth_uncert  = 0.36; % relative uncertainty on the thermal neutron capture production rate (Cronus v2.1 with lm)
+        Peth_uncert = 0.35; % relative uncertainty on the thermal neutron capture production rate (Cronus v2.1 with lm)
 end
 
 % Add additonal constraints on deposition ------------------------------- %
 % here you need to enter the parameter of the layers that are not
 % constrained by the sample you are running. This includes the surface and
 % its age as well as additional layers in you section that may be dated and
-% therefore constrain the deposition of overbrudn for your sample
+% therefore constrain the deposition of overburden for your sample
 Model = struct();
 Model.depths         = [0];  % depths of constrained layers, first should always be 0 for surface (cm)
 Model.depths_uncerts = [0];
-Model.ages           = [55e3];  % ages of constrained layers in yrs
-Model.age_uncerts    = [5e3];  % age uncertainty of constrained layers in yrs
+Model.ages           = [8e3];    % ages of constrained layers in yrs
+Model.age_uncerts    = [2.5e3];  % age uncertainty of constrained layers in yrs
+Model.comment        = 'The age of the top of deposit is taken as the middle between the age of the higher OSL sample and the C14 date from river incision the uncertainty corresponds to the difference between the middle value and the OSL/14C age'; 
 
+                       
 switch nuclide
     case '10Be'
         ind  = input('Enter the number of the sample you want to run (the row within the data file) ');
         depth= num(ind,14)*100;        % depth of sample (cm), I enter the values as m into the excel sheet even though the Cronus input is in g/cmÂ²
         depth_uncert = num(ind,29)*100;% uncertainty in overburden (cm)
-        lat  = num(ind,1);             % latitude in degree, must be same for all depths
-        lon  = num(ind,2);             % longitude in degree (needed for cutoff rigidity)
         elev = num(ind,3);             % elevation in (m)
-        Tshd = num(ind,7);            % topographic shielding factor
-        name = txt(4+ind,1);
-        
-        % from separate input sheet
+        Tshd = num(ind,7);             % topographic shielding factor
+        name = txt(4+ind,1);           % sample name
         age = num(ind,33)*1e3;         % age of sample   (yrs)
         age_uncert = num(ind,34)*1e3;  % age uncertainty (yrs)
 
         % CONSTANTS ----------------------------------------------------- %
-        lambda = log(2)/1.39e6;	          % decay constant for 10Be
-        num(ind,4) = stdatm(elev);        % convert to air pressure
+        lambda = log(2)/1.39e6;	       % decay constant for 10Be
+        num(ind,4) = stdatm(elev);     % convert to air pressure
         
     case '36Cl'
 
@@ -82,37 +88,36 @@ switch nuclide
         inds = ind;
 
         % CONSTANTS ----------------------------------------------------- %
-        lambda = log(2)/3.013e5;% decay constant for 36Cl (Audi, 2017)
-        lat  = num(ind,1);      % sample latitude
-        elev = num(ind,2);      % sample elvation
-        name = txt(ind+1,1);    % sample name
-        age = num(inds,5)*1e3;    % sample age in yrs
-        age_uncert = num(inds,6)*1e3;
-        depth = num(inds,3)*100;  % samle depth
+        lambda = log(2)/3.013e5;       % decay constant for 36Cl (Audi, 2017)
+        elev = num(ind,3);             % sample elvation
+        name = txt(ind,1);             % sample name
+        age = num(inds,80)*1e3;        % sample age in yrs
+        age_uncert = num(inds,81)*1e3;
+        depth = num(inds,12)*100;      % sample depth
+        depth_uncert = num(inds,51)*100;
 
         % assign scaling factor for nucleonic and muonic production ----- %
-        num(XXXX) = stdatm(elev);        % convert to air pressure
-
+        num(inds,4) = stdatm(elev);    % convert to air pressure
 end
 
 % add constraints from main sample to additional ones
-Model.depths = [Model.depths;depth];   depth = Model.depths;
+Model.depths         = [Model.depths;depth];  depth = Model.depths;
 Model.depths_uncerts = [Model.depths_uncerts; depth_uncert]; depth_uncert = Model.depths_uncerts;
-Model.ages   = [Model.ages;age];       age   = Model.ages;
-Model.age_uncerts = [Model.age_uncerts;age_uncert]; age_uncert = Model.age_uncerts;
+Model.ages           = [Model.ages;age];      age   = Model.ages;
+Model.age_uncerts    = [Model.age_uncerts;age_uncert];       age_uncert = Model.age_uncerts;
 
 %% PRODUCTION RATES ----------------------------------------------------- %
 pp=physpars();
-max_depth = depth(end) + 4*depth_uncert(end); % get maximum possible depth to come up in forward models, this will e the depth until which the production profile is calculated
+max_depth = depth(end) + 4*depth_uncert(end); % get maximum possible depth to come up in forward models, this will be the depth until which the production profile is calculated
 max_age   = age(end)   + 4*age_uncert(end);   % get maximum possible age for forward models, 4-sigma cutoff
 num = num(ind,1:end-2);
-num([14,19]) = 0;
 switch nuclide
     case '10Be'
+        num([14,29]) = 0;                     % set "depth-to-top-of-sample" for CRONUS back to zero in order to calculate full production rate profile
         [nominal10,uncerts10] = createage1026(num);               % get basic sample info 
         sp = samppars1026(nominal10);                             % Extract the sample parameters from the sampledatavector.
         sf = scalefacs1026(sp,scaling_model);                     % get scaling factors
-        cp = comppars1026(pp,sp,sf,max_depth);                     % computed parameters
+        cp = comppars1026(pp,sp,sf,max_depth);                    % computed parameters
         
         % for all potential depths and ages calculate the production rate
         % profile. 
@@ -121,14 +126,17 @@ switch nuclide
         Ps10  = nan(max_depth,ceil(max_age/1e2));
         Pmu10 = nan(max_depth,ceil(max_age/1e2));
         for i = 1:size(Ps10,2)
-            sf.currentsf=getcurrentsf(sf,-i*1e-1,scaling_model,'be');     % this scales back the productoin rate to a certain time, age has to be negative and in (ka)
-            [~,~,Ps10(:,i),Pmu10(:,i),~,~] = prodz1026(1:max_depth,pp,sf,cp);   % get production rates for a production profile
+            % this scales back the productoin rate to a certain time, age has to be negative and in (ka)
+            sf.currentsf=getcurrentsf(sf,-i*1e-1,scaling_model,'be');  
+            % get production rates for a production profile
+            [~,~,Ps10(:,i),Pmu10(:,i),~,~] = prodz1026(1:max_depth,pp,sf,cp);   
         end
         
     case '36Cl'
+        num([12,51]) = 0;      % set "depth-to-top-of-sample" for CRONUS back to zero in order to calculate full production rate profile
         [nominal36,uncerts36,cov36]=createage36(num);    % Get basic info about the sample ages.
-        sp = samppars36(sampledata);        % Extract the sample parameters from the sampledatavector.
-        sf = scalefacs36(sp,scaling_model); % get scaling factors
+        sp = samppars36(nominal36);         % Extract the sample parameters from the sampledatavector.
+        sf = scalefacs36(sp,scaling_model);  % get scaling factors
         cp = comppars36(pp,sp,sf,max_depth); % computed parameters
         
         % for all potential depths and ages calculate the production rate
@@ -140,9 +148,11 @@ switch nuclide
         Pth36  = nan(max_depth,ceil(max_age/1e2));
         Peth36 = nan(max_depth,ceil(max_age/1e2));
         for i = 1:size(Ps36,2)
-            sf.currentsf=getcurrentsf(sf,-i*1e-1,scaling_model,'cl');     % this scales back the productoin rate to a certain time, age has to be negative and in (ka)
+            % this scales back the production rate to a certain time, age has to be negative and in (ka)
+            sf.currentsf=getcurrentsf(sf,-i*1e-1,scaling_model,'cl');     
+            % get production rates for a production profile
             [~,Ps36(:,i),~,~,~,~,Pth36(:,i),Peth36(:,i),Pmu36(:,i),~,~,~,~,~,~,~] = ...
-            prodz36(1:max_depth,pp,sf,cp);             % get production rates for a production profile
+            prodz36(1:max_depth,pp,sf,cp);             
         end
 end
 
@@ -155,25 +165,27 @@ wb = waitbar(0,'Welcome to the jungle...');
 
 for i = 1:n
         % RANDOM SAMPLING ----------------------------------------------- %
-        % Random sampling of the different parameters from a normal distribution for each of the n realisations of the simulation.
-        % The ages of the core are sampled randomely within the uncertainty bounds of the dating provided to the function in Depth_age
-        % to avoid computational problems the normal distribution gets
-        % truncated at 4 sigma
+        % Random sampling of the different parameters from a normal distribution 
+        % for each of the n realisations of the simulation. The ages of the
+        % core are sampled randomely within the uncertainty bounds of the 
+        % dating provided to the function in Depth_age to avoid computational
+        % problems the normal distribution gets truncated at 4 sigma
         section_depth = round(truncnormrnd(1,depth(end),depth_uncert(end),depth(end)-4*depth_uncert(end), depth(end)+4*depth_uncert(end)));  % depth in cm
         Depth_age_guess = [[depth(1:end-1);section_depth],round(normrnd(age,age_uncert))];	% depth, age, matrix
 
         % if there's an age inversion, take a new sample
         counter = 0;
-        while any(diff(Depth_age_guess(:,2)) < 0)
+        while any(diff(Depth_age_guess(:,2)) < 0) || any(Depth_age_guess(:,2)<0)
             section_depth = round(truncnormrnd(1,depth(end),depth_uncert(end),depth(end)-4*depth_uncert(end), depth(end)+4*depth_uncert(end)));  % depth in cm
             Depth_age_guess = [[depth(1:end-1);section_depth],round(normrnd(age,age_uncert))];
             counter = counter + 1;
             if counter > 1e4
-                error("Couldn't sample a sequence without age inversion. Check yourage priors. ")
+                error("Couldn't sample a sequence without age inversion. Check your age priors. ")
             end
         end
 
-        % For production rates we sample from a truncated (3 sigma on both sides) normal distribution to avoid negative and extreme values
+        % For production rates we sample from a truncated (3 sigma on both sides)
+        % normal distribution to avoid negative and extreme values.
         % assemble random production rates
         switch nuclide
             case '10Be'
@@ -190,8 +202,8 @@ for i = 1:n
                 Pth  = Pth36  + Pth36  .* truncnormrnd(1,Pth_uncert, -3*Pth_uncert ,3*Pth_uncert);
                 Peth = Peth36 + Peth36 .* truncnormrnd(1,Peth_uncert,-3*Peth_uncert,3*Peth_uncert); 
                 
-                while any(Pmu10(:) < 0 | Pth10(:) < 0 | Peth10(:) < 0)   % if there are extreme values (negative ones) take a new sample
-                    Pmu = Pmu10 + Pmu10 .* truncnormrnd(1,Pmu_uncert  ,-3*Pmu_uncert,3*Pmu_uncert);
+                while any(Pmu36(:) < 0 | Pth36(:) < 0 | Peth36(:) < 0)   % if there are extreme values (negative ones) take a new sample
+                    Pmu = Pmu36 + Pmu36 .* truncnormrnd(1,Pmu_uncert  ,-3*Pmu_uncert,3*Pmu_uncert);
                     Pth  = Pth36  + Pth36  .* truncnormrnd(1,Pth_uncert, -3*Pth_uncert ,3*Pth_uncert);
                     Peth = Peth36 + Peth36 .* truncnormrnd(1,Peth_uncert,-3*Peth_uncert,3*Peth_uncert);
                 end
@@ -225,7 +237,7 @@ for i = 1:n
                 tmp_thickness = [];
                 dz = Intervals(j,1);
                 while dz > 0            % This assembles a random layer stratigraphy
-                     tmp = round(exp(exprnd(1/p_thickness)));   % this is a bit different in R, there the argument is rate = 1/mean
+                     tmp = round(exp(exprnd(1/p_thickness)));  
                      if (tmp > dz)
                          tmp = dz;
                      end
@@ -279,7 +291,7 @@ for i = 1:n
                 tmp_age   = Depth_age_guess(end,2) - (sum(Sed_col(k:length(Sed_col),2))+sum(Sed_col(k+1:length(Sed_col),2)))/2;
             end
             
-            Pind = round(tmp_age/1e2);  % get index of production rate column that is closest in age to tmp_age
+            Pind = round(tmp_age/1e2)+1;  % get index of production rate column that is closest in age to tmp_age
             switch nuclide
                 case '10Be'
                     tmp_conc = (Ps(tmp_depth,Pind) + Pmu(tmp_depth,Pind)).*tmp_time;  % Production at/g
@@ -327,10 +339,9 @@ disp(['postburial production quantiles ' name{1} ' = ' num2str(Pquantiles(1)) ' 
 %% EXPORT THE DATA
 if export
     filename = input('What name do you want to give this run for saving? ','s');
-%     print(['PostburialProd_' name '_' filename '.eps'], '-depsc', '-painters') % save figure
-%     savefig(h,['./output/PostburialProd_' ,name{1} ,'_' ,filename, '.fig'])
 
     % add all parameters to model
+    Model.scaling_model = scaling_model;
     Model.Ps_uncert   = Ps_uncert;
     Model.Pmu_uncert  = Pmu_uncert;
     Model.p_thickness = p_thickness;
@@ -341,5 +352,5 @@ if export
     Model.median = Pmedian;
     Model.quants1783 = Pquantiles;
 
-    save(['./output/PostburialProd_' name{1} '_' num2str(filename) '.mat'], 'Model')                % save model parameters
+    save(['./output/' nuclide '/PostburialProd_' name{1} '_' num2str(filename) '.mat'], 'Model')                % save model parameters
 end
