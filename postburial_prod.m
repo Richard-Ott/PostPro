@@ -11,32 +11,27 @@
 % The code is based on an R-script by M. Lupker but is now heavily
 % modified.
 
-% MAKE ASURE THAT UNITS OF G/CM² COMING OUT OF CRONUS GO WITH MY TREATING
-% OF EVERYTHING  AS LENGTH UNITS...
-% 
-% MAE URE THAT PRODUCTOIN PROFILE COMES OUT IN CM!!!!
-
 % Richard Ott, 2020
 clc
 clear
 close all
 
 addpath '.\subroutines'
-% addpath '..\data'
 addpath '..\..\..\..\Crete\Cretan_fans\data'
 
 % USER CHOICE ----------------------------------------------------------- %
-nuclide = '36Cl';       % Choose '10Be' or '36Cl'
-export = 1;             % do you want to save figures and model data
-n = 5e3;                % number of runs
+nuclide = '10Be';       % Choose '10Be' or '36Cl'
+export = 0;             % do you want to save figures and model data
+n = 1e3;                % number of runs
+global scaling_model
 scaling_model = 'lm';   % choose your scaling model, nomenclature follows Cronus
 
 % load sample data in Cronus excel format
-[num,txt,~] = xlsread('36Cl_data_CRONUS.xlsx','Matlab Postburial');
-% [num,txt,~] = xlsread('10Be_data_CRONUS',2);
+% [num,txt,~] = xlsread('36Cl_data_CRONUS.xlsx','Matlab Postburial');
+[num,txt,~] = xlsread('10Be_data_CRONUS','Matlab Postburial');
 
 %% assign data and constants -------------------------------------------- %
-p_thickness = 2.06; 	% parameter for power law distribution of sediment layer thickness (Gomez et al., 2002)
+p_thickness = 2.06; 	% parameter for power law distribution of sediment layer thickness (Gomez et al., 2002) 2.06
 p_time = 1.4;		    % parameter for power law distribution of sediment layer waiting time (Gomez et al., 2002)
 e = 0;                  % erosion rate (mm/yr)
 
@@ -60,13 +55,13 @@ end
 % its age as well as additional layers in you section that may be dated and
 % therefore constrain the deposition of overburden for your sample
 Model = struct();
-Model.depths         = [0];  % depths of constrained layers, first should always be 0 for surface (cm)
-Model.depths_uncerts = [0];
-Model.ages           = [8e3];    % ages of constrained layers in yrs
-Model.age_uncerts    = [2.5e3];  % age uncertainty of constrained layers in yrs
-Model.comment        = 'The age of the top of deposit is taken as the middle between the age of the higher OSL sample and the C14 date from river incision the uncertainty corresponds to the difference between the middle value and the OSL/14C age'; 
+Model.depths         = [0];  % depths of constrained layers (cm), first should always be 0 for surface (cm)
+Model.depths_uncerts = [0];  % (cm)
+Model.ages           = [71.1e3];    % ages of constrained layers in yrs
+Model.age_uncerts    = [7.5e3];  % age uncertainty of constrained layers in yrs
+% Model.comment        = 'The age of the top of deposit is taken as the middle between the age of the higher OSL sample and the C14 date from river incision the uncertainty corresponds to the difference between the middle value and the OSL/14C age'; 
 
-                       
+%% Load data                       
 switch nuclide
     case '10Be'
         ind  = input('Enter the number of the sample you want to run (the row within the data file) ');
@@ -74,9 +69,10 @@ switch nuclide
         depth_uncert = num(ind,29)*100;% uncertainty in overburden (cm)
         elev = num(ind,3);             % elevation in (m)
         Tshd = num(ind,7);             % topographic shielding factor
-        name = txt(4+ind,1);           % sample name
+        name = txt(ind,1);             % sample name
         age = num(ind,33)*1e3;         % age of sample   (yrs)
         age_uncert = num(ind,34)*1e3;  % age uncertainty (yrs)
+        rho = num(ind,6);              % density of burying material n g/cm³
 
         % CONSTANTS ----------------------------------------------------- %
         lambda = log(2)/1.39e6;	       % decay constant for 10Be
@@ -85,31 +81,32 @@ switch nuclide
     case '36Cl'
 
         ind = input('Enter the number of the sample you want to run (the row within the data file) ');
-        inds = ind;
 
         % CONSTANTS ----------------------------------------------------- %
         lambda = log(2)/3.013e5;       % decay constant for 36Cl (Audi, 2017)
         elev = num(ind,3);             % sample elvation
         name = txt(ind,1);             % sample name
-        age = num(inds,80)*1e3;        % sample age in yrs
-        age_uncert = num(inds,81)*1e3;
-        depth = num(inds,12)*100;      % sample depth
-        depth_uncert = num(inds,51)*100;
+        age = num(ind,80)*1e3;         % sample age in yrs
+        age_uncert = num(ind,81)*1e3;
+        depth = num(ind,12)*100;       % sample depth in cm
+        depth_uncert = num(ind,51)*100;
+        rho = num(hallo);              % density of burying material in g/cm³
 
         % assign scaling factor for nucleonic and muonic production ----- %
-        num(inds,4) = stdatm(elev);    % convert to air pressure
+        num(ind,4) = stdatm(elev);    % convert to air pressure
 end
 
 % add constraints from main sample to additional ones
-Model.depths         = [Model.depths;depth];  depth = Model.depths;
-Model.depths_uncerts = [Model.depths_uncerts; depth_uncert]; depth_uncert = Model.depths_uncerts;
+Model.depths         = [Model.depths;depth];  depth = Model.depths; 
+Model.depths_uncerts = [Model.depths_uncerts; depth_uncert]; depth_uncert = Model.depths_uncerts; 
 Model.ages           = [Model.ages;age];      age   = Model.ages;
 Model.age_uncerts    = [Model.age_uncerts;age_uncert];       age_uncert = Model.age_uncerts;
 
+
 %% PRODUCTION RATES ----------------------------------------------------- %
 pp=physpars();
-max_depth = depth(end) + 4*depth_uncert(end); % get maximum possible depth to come up in forward models, this will be the depth until which the production profile is calculated
-max_age   = age(end)   + 4*age_uncert(end);   % get maximum possible age for forward models, 4-sigma cutoff
+max_depth = depth(end)*rho + 5*depth_uncert(end)*rho; % get maximum possible depth to come up in forward models, this will be the depth until which the production profile is calculated, in g/cm²
+max_age   = age(end)   + 5*age_uncert(end);   % get maximum possible age for forward models, 4-sigma cutoff
 num = num(ind,1:end-2);
 switch nuclide
     case '10Be'
@@ -121,7 +118,7 @@ switch nuclide
         
         % for all potential depths and ages calculate the production rate
         % profile. 
-        % Production rates are sorted in matrix with depth rows (in cm) and time
+        % Production rates are sorted in matrix with depth rows (in g/cm2) and time
         % columns (every 100 years)
         Ps10  = nan(max_depth,ceil(max_age/1e2));
         Pmu10 = nan(max_depth,ceil(max_age/1e2));
@@ -141,7 +138,7 @@ switch nuclide
         
         % for all potential depths and ages calculate the production rate
         % profile. 
-        % Production rates are sorted in matrix with depth rows (in cm) and time
+        % Production rates are sorted in matrix with depth rows (in g/cm2) and time
         % columns (every 100 years)
         Ps36   = nan(max_depth,ceil(max_age/1e2));
         Pmu36  = nan(max_depth,ceil(max_age/1e2));
@@ -160,6 +157,17 @@ end
 %% START FORWARD MODELS ------------------------------------------------- %
 % Final Storage matrix
 PostProduction = zeros(1,n);
+
+% draw random production rates before loop to speed up computation,
+% truncate normal distribution to avoid negative production rates
+Ps_rand  = truncnormrnd([n,1],0,Ps_uncert ,-1,1);
+Pmu_rand = truncnormrnd([n,1],0,Pmu_uncert,-1,1);
+if strcmpi(nuclide,'36Cl')
+    Pth_rand  = truncnormrnd([n,1],0,Pth_uncert ,-1,1);
+    Peth_rand = truncnormrnd([n,1],0,Peth_uncert,-1,1);
+end
+        
+
 % Initialize a progress bar to monitor the progression of the number of simulations n
 wb = waitbar(0,'Welcome to the jungle...');
 
@@ -169,14 +177,14 @@ for i = 1:n
         % for each of the n realisations of the simulation. The ages of the
         % core are sampled randomely within the uncertainty bounds of the 
         % dating provided to the function in Depth_age to avoid computational
-        % problems the normal distribution gets truncated at 4 sigma
-        section_depth = round(truncnormrnd(1,depth(end),depth_uncert(end),depth(end)-4*depth_uncert(end), depth(end)+4*depth_uncert(end)));  % depth in cm
+        % problems the normal distribution gets truncated at 3 sigma
+        section_depth = round(truncnormrnd(1,depth(end),depth_uncert(end),depth(end)-3*depth_uncert(end), depth(end)+3*depth_uncert(end)));  % depth in cm 
         Depth_age_guess = [[depth(1:end-1);section_depth],round(normrnd(age,age_uncert))];	% depth, age, matrix
 
         % if there's an age inversion, take a new sample
         counter = 0;
-        while any(diff(Depth_age_guess(:,2)) < 0) || any(Depth_age_guess(:,2)<0)
-            section_depth = round(truncnormrnd(1,depth(end),depth_uncert(end),depth(end)-4*depth_uncert(end), depth(end)+4*depth_uncert(end)));  % depth in cm
+        while any(diff(Depth_age_guess(:,2)) <= 1) || any(Depth_age_guess(:,2)<0) || any(diff(Depth_age_guess(:,1)) <= 5)
+            section_depth = round(truncnormrnd(1,depth(end),depth_uncert(end),depth(end)-3*depth_uncert(end), depth(end)+3*depth_uncert(end)));  % depth in cm
             Depth_age_guess = [[depth(1:end-1);section_depth],round(normrnd(age,age_uncert))];
             counter = counter + 1;
             if counter > 1e4
@@ -184,30 +192,16 @@ for i = 1:n
             end
         end
 
-        % For production rates we sample from a truncated (3 sigma on both sides)
-        % normal distribution to avoid negative and extreme values.
         % assemble random production rates
         switch nuclide
             case '10Be'
-                Ps  = Ps10  + Ps10  .* truncnormrnd(1,Ps_uncert,-3*Ps_uncert,3*Ps_uncert);
-                Pmu = Pmu10 + Pmu10 .* truncnormrnd(1,Pmu_uncert  ,-3*Pmu_uncert,3*Pmu_uncert);
-                
-                while any(Pmu10(:) < 0)   % if there are extreme values (negative ones) take a new sample
-                    Pmu = Pmu10 + Pmu10 .* truncnormrnd(1,Pmu_uncert  ,-3*Pmu_uncert,3*Pmu_uncert);
-                end
-                
+                Ps  = Ps10  + Ps10  .* Ps_rand(i);
+                Pmu = Pmu10 + Pmu10 .* Pmu_rand(i);
             case '36Cl'
-                Ps   = Ps36  + Ps36    .* truncnormrnd(1,Ps_uncert,  -3*Ps_uncert  ,3*Ps_uncert);
-                Pmu  = Pmu36 + Pmu36   .* truncnormrnd(1,Pmu_uncert, -3*Pmu_uncert ,3*Pmu_uncert);
-                Pth  = Pth36  + Pth36  .* truncnormrnd(1,Pth_uncert, -3*Pth_uncert ,3*Pth_uncert);
-                Peth = Peth36 + Peth36 .* truncnormrnd(1,Peth_uncert,-3*Peth_uncert,3*Peth_uncert); 
-                
-                while any(Pmu36(:) < 0 | Pth36(:) < 0 | Peth36(:) < 0)   % if there are extreme values (negative ones) take a new sample
-                    Pmu = Pmu36 + Pmu36 .* truncnormrnd(1,Pmu_uncert  ,-3*Pmu_uncert,3*Pmu_uncert);
-                    Pth  = Pth36  + Pth36  .* truncnormrnd(1,Pth_uncert, -3*Pth_uncert ,3*Pth_uncert);
-                    Peth = Peth36 + Peth36 .* truncnormrnd(1,Peth_uncert,-3*Peth_uncert,3*Peth_uncert);
-                end
-                
+                Ps   = Ps36  + Ps36    .* Ps_rand(i);
+                Pmu  = Pmu36 + Pmu36   .* Pmu_rand(i);
+                Pth  = Pth36  + Pth36  .* Pth_rand(i);
+                Peth = Peth36 + Peth36 .* Peth_rand(i);               
         end
         %
         % First part of the routine
@@ -229,43 +223,57 @@ for i = 1:n
         [r,~] = size(Intervals);
         Sed_col = [];
         for j  = 1:r
-
-            counter = 0;
-            tmp_thickness = [];
-            while length(tmp_thickness) <= 2    % if a stratigraphy consists of only 2 or less layers, discard it and try again.
-
+            newtry = 0;
+            while newtry == 0 % this while loop ensures that if a weird sample of thicknesses is drawn the 
+                % algorithm does not get stuck trying to find a suitable
+                % age distribution
+            
+                counter = 0;
                 tmp_thickness = [];
-                dz = Intervals(j,1);
-                while dz > 0            % This assembles a random layer stratigraphy
-                     tmp = round(exp(exprnd(1/p_thickness)));  
-                     if (tmp > dz)
-                         tmp = dz;
-                     end
-                     dz = dz - tmp;
-                     tmp_thickness = [tmp_thickness;tmp];
+                while length(tmp_thickness) <= 2    % if a stratigraphy consists of only 2 or less layers, discard it and try again.
+
+                    tmp_thickness = [];
+                    dz = Intervals(j,1);
+                    while dz > 0            % This assembles a random layer stratigraphy
+                         tmp = round(exp(exprnd(1/p_thickness)));  
+                         if (tmp > dz)
+                             tmp = dz;
+                         end
+                         dz = dz - tmp;
+                         tmp_thickness = [tmp_thickness;tmp];
+                    end
+                    counter = counter +1;
+                    if counter > 1e5
+                        error(' stuck in the while loop for 1e5 iterations. Somethings wrong with your depth set up')
+                    end
                 end
-                counter = counter +1;
-                if counter > 1e5
-                    error(' stuck in the while loop for 1e5 iterations. Somethings wrong with your depth set up')
+
+                % Now that the number of layers for the section is known, an 
+                % equal number of waiting times is drawn also from a power law 
+                % distribution. To make sure that the total amount of time is
+                % equal to the time covered by the section (i.e. the difference
+                % between lower and upper age) the waiting times are being
+                % drawn until the the correct total duration (+-10% is
+                % achieved). This is necessary because there is no exponential
+                % sampling function with fixed sum for matlab. The waiting times
+                % with +-20% difference are then rescaled to the exact total time.
+                dt = Intervals(j,2);
+                pos_time = exp(exprnd(1/p_time,length(tmp_thickness),1)); % draw random times
+                counter = 0;
+                newtry = 1;
+                while abs(sum(pos_time) - dt) > dt*0.2  && newtry ==0 % difference sampled time to total time larger 10%, then resample
+                    pos_time = exp(exprnd(1/p_time,length(tmp_thickness),1)); % draw random times
+                    counter = counter+1;
+                    if counter > 1e3                 % if the algorithm cannot find a suiting age distribution draw a new thcikness distribution
+                        newtry = 0;
+                    end
                 end
+                tmp_time = dt*pos_time/sum(pos_time);   % rescale to total time dt
+
+                % The data of this section is attached on top of the data from the previous section
+                Sed_col = [[tmp_thickness,tmp_time] ; Sed_col]; % bind all data together
             end
-
-            % Now that the number of layers for the section is known, an 
-            % equal number of waiting times is drawn also from a power law 
-            % distribution. To make sure that the total amount of time is
-            % equal to the time covered by the section (i.e. the difference
-            % between lower and upper age) the waiting times are rescaled to 
-            % that duration
-            % (!! need to check if this is allowed, i.e. is the distribution 
-            % of the rescalled waiting times also a power law distribution?)
-            dt = Intervals(j,2);
-            pos_time = exp(exprnd(1/p_time,length(tmp_thickness),1));
-            tmp_time = dt*pos_time/sum(pos_time);
-
-            % The data of this section is attached on top of the data from the previous section
-            Sed_col = [[tmp_thickness,tmp_time] ; Sed_col]; % bind all data together
         end
-%         Sed_col = Sed_col(1:end-1,:);       % why remove the last????
 
         % Second part of the routine
         % The postdepositional nuclide production can be computed for the 
@@ -275,23 +283,27 @@ for i = 1:n
         % loop indices decreases). Each part of the loop calculates the 
         % nuclide production of a given layer as well as all layers under it.
         % Each iteration is then summed with the previous one
-        
-        profile = zeros(1,section_depth);
+        Sed_col_gcm2 = Sed_col;  Sed_col_gcm2(:,1) = round(Sed_col(:,1).*rho);  % convert depth to gm/2 to match production rates
+        section_depth_gcm2 = round(section_depth * rho);  % convert to g/cm2 to match production rate tables
+        profile = zeros(1,section_depth_gcm2);
         for k =  length(Sed_col):-1:1
             % For each layer temporary depth, density, time and concentration vectors are created
             % These vectors are made such that each element of the vector corresponds to 1 cm.
-            tmp_depth = 1:sum(Sed_col(length(Sed_col):-1:k,1));
-            tmp_time  = repmat(Sed_col(k,2), length(tmp_depth),1);
+            tmp_depth = 1:sum(Sed_col_gcm2(length(Sed_col_gcm2):-1:k,1));
+            tmp_time  = repmat(Sed_col_gcm2(k,2), length(tmp_depth),1);
             
             % get mean depositional age of this layer for correction
             % scaling factor
-            if k == length(Sed_col)
-                tmp_age   = Depth_age_guess(end,2) - cumsum(Sed_col(k:length(Sed_col),2))/2;
+            if k == length(Sed_col_gcm2)
+                tmp_age   = Depth_age_guess(end,2) - cumsum(Sed_col_gcm2(k:length(Sed_col_gcm2),2))/2;
             else
-                tmp_age   = Depth_age_guess(end,2) - (sum(Sed_col(k:length(Sed_col),2))+sum(Sed_col(k+1:length(Sed_col),2)))/2;
+                tmp_age   = Depth_age_guess(end,2) - (sum(Sed_col_gcm2(k:length(Sed_col_gcm2),2))+sum(Sed_col_gcm2(k+1:length(Sed_col_gcm2),2)))/2;
             end
             
             Pind = round(tmp_age/1e2)+1;  % get index of production rate column that is closest in age to tmp_age
+            if Pind > round(max_age/1e2)
+                error('The random sample is older than the oldest computed production rate. Increase the safety factor for max_age or use a truncated normal distribution for drawing the samples')
+            end
             switch nuclide
                 case '10Be'
                     tmp_conc = (Ps(tmp_depth,Pind) + Pmu(tmp_depth,Pind)).*tmp_time;  % Production at/g
@@ -303,22 +315,22 @@ for i = 1:n
             end
 
             % The result is added to the production vector
-            profile((section_depth-length(tmp_depth)+1):section_depth) = profile((section_depth-length(tmp_depth)+1):section_depth) + tmp_conc';
+            profile((section_depth_gcm2-length(tmp_depth)+1):section_depth_gcm2) = profile((section_depth_gcm2-length(tmp_depth)+1):section_depth_gcm2) + tmp_conc';
         end
         
         % add production after end of deposition
-        if Depth_age_guess(1,2) ~= 0 % if there is a no deposition period at the end
+        if Depth_age_guess(1,2) ~= 0 % if there is a no-deposition period at the end
             Pind = round(Depth_age_guess(1,2)/1e2);
             switch nuclide
                 case '10Be'
-                    profile(end) = profile(end) + (sum(Ps(section_depth,1:Pind) + ...
-                        Pmu(section_depth,1:Pind)).*1e2);        % Production at/g
+                    profile = profile + (sum(Ps(1:section_depth_gcm2,1:Pind) + ...
+                        Pmu(1:section_depth_gcm2,1:Pind),2).*1e2);        % Production at/g
                 case '36Cl'
-                    profile(end) = profile(end) + (sum(Ps(section_depth,1:Pind) + ...
-                        Pmu(section_depth,1:Pind) + Pth(section_depth,1:Pind) ...
-                    + Peth(section_depth,1:Pind)).*1e2);        % Production at/g
+                    profile = profile + (sum(Ps(1:section_depth_gcm2,1:Pind) + ...
+                        Pmu(1:section_depth_gcm2,1:Pind) + Pth(1:section_depth_gcm2,1:Pind) ...
+                    + Peth(1:section_depth_gcm2,1:Pind),2).*1e2);        % Production at/g
             end
-            profile(end) = profile(end).* exp(-1e2.*lambda);      % radioactive decay
+            profile = profile.* exp(-1e2.*lambda);    % radioactive decay
         end
         
         PostProduction(i) = profile(end);
@@ -330,6 +342,7 @@ close(wb)
 Pmean = round(mean(PostProduction));
 Pmedian = round(median(PostProduction));
 Pstd = round(std(PostProduction));
+Pquartiles = round(quantile(PostProduction,[0.25,0.75]));
 Pquantiles = round(quantile(PostProduction,[0.17,0.83]));
 disp(['postburial production ' name{1} ' = ' num2str(Pmean) ' +/- ' num2str(Pstd)]) 
 disp(['postburial production median ' name{1} ' = ' num2str(Pmedian) ' +/- ' num2str(diff(Pquantiles)/2)]) 
@@ -350,6 +363,7 @@ if export
     Model.mean_postburial = Pmean;
     Model.sd_postburial = Pstd;
     Model.median = Pmedian;
+    Model.quartiles = Pquartiles;
     Model.quants1783 = Pquantiles;
 
     save(['./output/' nuclide '/PostburialProd_' name{1} '_' num2str(filename) '.mat'], 'Model')                % save model parameters
