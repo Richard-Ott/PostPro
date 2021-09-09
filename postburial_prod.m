@@ -11,6 +11,13 @@
 % The code is based on an R-script by M. Lupker but is now heavily
 % modified.
 
+%%%%%%%%%%%%%%%%%%%%%%%
+% I think the power law formulation is incorrect. Gomez uses a log base of
+% 2 and not the ln. Also, this cide takes the exponential of exprnd and I
+% think thats incorrect because you take the exp of the already exponenated
+% number
+%%%%%%%%%%%%%%%%%%%%%%
+
 % Richard Ott, 2020
 clc
 clear
@@ -107,7 +114,7 @@ Model.age_uncerts    = [Model.age_uncerts;age_uncert];       age_uncert = Model.
 pp=physpars();
 max_depth = depth(end)*rho + 5*depth_uncert(end)*rho; % get maximum possible depth to come up in forward models, this will be the depth until which the production profile is calculated, in g/cm²
 max_age   = age(end)   + 5*age_uncert(end);   % get maximum possible age for forward models, 4-sigma cutoff
-num = num(ind,1:end-2);
+num = num(ind,:);  % I think this can be removed?!?!
 switch nuclide
     case '10Be'
         num([14,29]) = 0;                     % set "depth-to-top-of-sample" for CRONUS back to zero in order to calculate full production rate profile
@@ -155,7 +162,7 @@ end
 
 
 %% START FORWARD MODELS ------------------------------------------------- %
-% Final Storage matrix
+% Final Storage matrix for postburial production at sample depth
 PostProduction = zeros(1,n);
 
 % draw random production rates before loop to speed up computation,
