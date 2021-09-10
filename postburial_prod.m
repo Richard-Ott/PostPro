@@ -22,7 +22,7 @@ addpath '..\..\..\..\Crete\Cretan_fans\data'
 % USER CHOICE ----------------------------------------------------------- %
 nuclide = '10Be';       % Choose '10Be' or '36Cl'
 export = 0;             % do you want to save figures and model data
-n = 1e2;                % number of runs
+n = 5e3;                % number of runs
 global scaling_model
 scaling_model = 'lm';   % choose your scaling model, nomenclature follows Cronus
 
@@ -30,7 +30,7 @@ scaling_model = 'lm';   % choose your scaling model, nomenclature follows Cronus
 % [num,txt,~] = xlsread('36Cl_data_CRONUS.xlsx','Matlab Postburial');
 [num,txt,~] = xlsread('10Be_data_CRONUS','Matlab Postburial');
 
-%% assign data and constants -------------------------------------------- %
+%% assign data and constants ---------------1----------------------------- %
 
 % Production rate uncertainties
 switch nuclide
@@ -209,7 +209,8 @@ for i = 1:n
         [r,~] = size(Intervals);
         Sed_col = [];
         for j  = 1:r                                        % loop through packages of stratigraphic section
-            tmp_thickness = ones(round(Intervals(j,1)*rho),1);  % make 1 g/cm2 thick layers
+%             tmp_thickness = ones(round(Intervals(j,1)*rho),1);  % make 1 g/cm2 thick layers
+            tmp_thickness = 10*ones(round(Intervals(j,1)*rho/10),1);  % make 10 g/cm2 thick layers, this line makes the code a bit less accurate but 10 times faster
             tmp_time = (Intervals(j,2)/length(tmp_thickness))* ones(length(tmp_thickness),1);   % time within each layer (yrs) 
             
             % The data of this section is attached on top of the data from the previous section
@@ -225,7 +226,7 @@ for i = 1:n
         % nuclide production of a given layer as well as all layers under it.
         % Each iteration is then summed with the previous one
         Sed_col(:,3) = Depth_age_guess(end,2) - flipud(cumsum(Sed_col(:,2)));  % age of every layer in yrs
-        section_depth_gcm2 = round(section_depth * rho);  % convert to g/cm2 to match production rate tables
+        section_depth_gcm2 = sum(Sed_col(:,1));  % convert to g/cm2 to match production rate tables
         profile = zeros(section_depth_gcm2,1);
         for k =  length(Sed_col):-1:1
             % For each layer temporary depth, density, time and concentration vectors are created
@@ -305,5 +306,5 @@ if export
     Model.quartiles = Pquartiles;
     Model.quants1783 = Pquantiles;
 
-    save(['./output/' nuclide '/PostburialProd_' name{1} '_' num2str(filename) '.mat'], 'Model')                % save model parameters
+    save(['./output/linearAggradation' nuclide '/PostburialProd_' name{1} '_' num2str(filename) '.mat'], 'Model')                % save model parameters
 end
