@@ -104,7 +104,7 @@ Model.age_uncerts    = [Model.age_uncerts;age_uncert];       age_uncert = Model.
 pp=physpars();
 max_depth = depth(end)*rho + 5*depth_uncert(end)*rho; % get maximum possible depth to come up in forward models, this will be the depth until which the production profile is calculated, in g/cm²
 max_age   = age(end)   + 5*age_uncert(end);   % get maximum possible age for forward models, 4-sigma cutoff
-num = num(ind,:);  % I think this can be removed?!?!
+num = num(ind,:);  % just keep the sample you selected
 switch nuclide
     case '10Be'
         num([14,29]) = 0;                     % set "depth-to-top-of-sample" for CRONUS back to zero in order to calculate full production rate profile
@@ -202,25 +202,14 @@ for i = 1:n
         end
         %
         % First part of the routine
-        % A random sediment layer sequence is built for each section of the 
-        % core that is bound by two dates (minimum age and maximum age 
-        % constrain). This random sequence is stored in the matrix Sed_col,
-        % which contains layer thickness (Sed_col[,1]) and waiting time for
-        % the next layer = exposure time (Sed_col[,2]). Layer thickness and
-        % waiting times are drawn from two power law distributions as 
-        % observed in many stockastic environments. For each section of the 
-        % core the total length and time constrains are met (sum of length
-        % of each layer should be equal to total length of the core section 
-        % and same for time). In other words this means that for each 
-        % section the average accumulation rate is the same as calculated 
-        % from the core data. Each dated section of the core is filled with
-        % power law distributed layer thichnesses until the layer is full (dz = 0)
+        % A random sediment layer sequence is built from the random age and
+        % depths just drawn
         
         Intervals = diff(Depth_age_guess);
         [r,~] = size(Intervals);
         Sed_col = [];
-        for j  = 1:r
-            tmp_thickness = ones(round(Intervals(j,1)),1);  % make 1 cm thick layers
+        for j  = 1:r                                        % loop through packages of stratigraphic section
+            tmp_thickness = ones(round(Intervals(j,1)*rho),1);  % make 1 g/cm2 thick layers
             tmp_time = (Intervals(j,2)/length(tmp_thickness))* ones(length(tmp_thickness),1);   % time within each layer (yrs) 
             
             % The data of this section is attached on top of the data from the previous section
@@ -236,28 +225,23 @@ for i = 1:n
         % nuclide production of a given layer as well as all layers under it.
         % Each iteration is then summed with the previous one
         Sed_col(:,3) = Depth_age_guess(end,2) - flipud(cumsum(Sed_col(:,2)));  % age of every layer in yrs
-        Sed_col_gcm2 = Sed_col;  Sed_col_gcm2(:,1) = round(Sed_col(:,1).*rho);  % convert depth to gm/2 to match production rates
         section_depth_gcm2 = round(section_depth * rho);  % convert to g/cm2 to match production rate tables
         profile = zeros(section_depth_gcm2,1);
         for k =  length(Sed_col):-1:1
             % For each layer temporary depth, density, time and concentration vectors are created
-            % These vectors are made such that each element of the vector corresponds to 1 cm.
-            tmp_depth = 1:sum(Sed_col_gcm2(length(Sed_col_gcm2):-1:k,1));
-            tmp_time  = repmat(Sed_col_gcm2(k,2), length(tmp_depth),1);
+            tmp_depth = 1:sum(Sed_col(length(Sed_col):-1:k,1));
+            tmp_time  = repmat(Sed_col(k,2), length(tmp_depth),1);
             
             % get mean depositional age of this layer for correction
             % scaling factor
             tmp_age = Sed_col(k,3);
-%             if k == length(Sed_col_gcm2)
-%                 tmp_age   = Depth_age_guess(end,2) - cumsum(Sed_col_gcm2(k:length(Sed_col_gcm2),2))/2;
-%             else
-%                 tmp_age   = Depth_age_guess(end,2) - (sum(Sed_col_gcm2(k:length(Sed_col_gcm2),2))+sum(Sed_col_gcm2(k+1:length(Sed_col_gcm2),2)))/2;
-%             end
             
-            Pind = round(tmp_age/1e2)+1;  % get index of production rate column that is closest in age to tmp_age
+            % get index of production rate column that is closest in age to tmp_age
+            Pind = round(tmp_age/1e2)+1;  
             if Pind > round(max_age/1e2)
                 error('The random sample is older than the oldest computed production rate. Increase the safety factor for max_age or use a truncated normal distribution for drawing the samples')
             end
+            % calculate production of nuclides
             switch nuclide
                 case '10Be'
                     tmp_conc = (Ps(tmp_depth,Pind) + Pmu(tmp_depth,Pind)).*tmp_time;  % Production at/g
@@ -277,14 +261,15 @@ for i = 1:n
             Pind = round(Depth_age_guess(1,2)/1e2);
             switch nuclide
                 case '10Be'
-                    profile = profile + (sum(Ps(1:section_depth_gcm2,1:Pind) + ...
+                    postaggradation = (sum(Ps(1:section_depth_gcm2,1:Pind) + ...
                         Pmu(1:section_depth_gcm2,1:Pind),2).*1e2);        % Production at/g
                 case '36Cl'
-                    profile = profile + (sum(Ps(1:section_depth_gcm2,1:Pind) + ...
+                    postaggradation = (sum(Ps(1:section_depth_gcm2,1:Pind) + ...
                         Pmu(1:section_depth_gcm2,1:Pind) + Pth(1:section_depth_gcm2,1:Pind) ...
                     + Peth(1:section_depth_gcm2,1:Pind),2).*1e2);        % Production at/g
             end
-            profile = profile.* exp(-1e2.*lambda);    % radioactive decay
+            % add to profile and radioavtive decay
+            profile = profile + postaggradation.* exp(-Depth_age_guess(1,2).*lambda);
         end
         
         PostProduction(i) = profile(end);
