@@ -11,13 +11,6 @@
 % The code is based on an R-script by M. Lupker but is now heavily
 % modified.
 
-%%%%%%%%%%%%%%%%%%%%%%%
-% I think the power law formulation is incorrect. Gomez uses a log base of
-% 2 and not the ln. Also, this cide takes the exponential of exprnd and I
-% think thats incorrect because you take the exp of the already exponenated
-% number
-%%%%%%%%%%%%%%%%%%%%%%
-
 % Richard Ott, 2020
 clc
 clear
@@ -29,7 +22,7 @@ addpath '..\..\..\..\Crete\Cretan_fans\data'
 % USER CHOICE ----------------------------------------------------------- %
 nuclide = '10Be';       % Choose '10Be' or '36Cl'
 export = 0;             % do you want to save figures and model data
-n = 1e3;                % number of runs
+n = 1e2;                % number of runs
 global scaling_model
 scaling_model = 'lm';   % choose your scaling model, nomenclature follows Cronus
 
@@ -38,9 +31,6 @@ scaling_model = 'lm';   % choose your scaling model, nomenclature follows Cronus
 [num,txt,~] = xlsread('10Be_data_CRONUS','Matlab Postburial');
 
 %% assign data and constants -------------------------------------------- %
-p_thickness = 2.06; 	% parameter for power law distribution of sediment layer thickness (Gomez et al., 2002) 2.06
-p_time = 1.4;		    % parameter for power law distribution of sediment layer waiting time (Gomez et al., 2002)
-e = 0;                  % erosion rate (mm/yr)
 
 % Production rate uncertainties
 switch nuclide
@@ -230,56 +220,11 @@ for i = 1:n
         [r,~] = size(Intervals);
         Sed_col = [];
         for j  = 1:r
-            newtry = 0;
-            while newtry == 0 % this while loop ensures that if a weird sample of thicknesses is drawn the 
-                % algorithm does not get stuck trying to find a suitable
-                % age distribution
+            tmp_thickness = ones(round(Intervals(j,1)),1);  % make 1 cm thick layers
+            tmp_time = (Intervals(j,2)/length(tmp_thickness))* ones(length(tmp_thickness),1);   % time within each layer (yrs) 
             
-                counter = 0;
-                tmp_thickness = [];
-                while length(tmp_thickness) <= 2    % if a stratigraphy consists of only 2 or less layers, discard it and try again.
-
-                    tmp_thickness = [];
-                    dz = Intervals(j,1);
-                    while dz > 0            % This assembles a random layer stratigraphy
-                         tmp = round(exp(exprnd(1/p_thickness)));  
-                         if (tmp > dz)
-                             tmp = dz;
-                         end
-                         dz = dz - tmp;
-                         tmp_thickness = [tmp_thickness;tmp];
-                    end
-                    counter = counter +1;
-                    if counter > 1e5
-                        error(' stuck in the while loop for 1e5 iterations. Somethings wrong with your depth set up')
-                    end
-                end
-
-                % Now that the number of layers for the section is known, an 
-                % equal number of waiting times is drawn also from a power law 
-                % distribution. To make sure that the total amount of time is
-                % equal to the time covered by the section (i.e. the difference
-                % between lower and upper age) the waiting times are being
-                % drawn until the the correct total duration (+-10% is
-                % achieved). This is necessary because there is no exponential
-                % sampling function with fixed sum for matlab. The waiting times
-                % with +-20% difference are then rescaled to the exact total time.
-                dt = Intervals(j,2);
-                pos_time = exp(exprnd(1/p_time,length(tmp_thickness),1)); % draw random times
-                counter = 0;
-                newtry = 1;
-                while abs(sum(pos_time) - dt) > dt*0.2  && newtry ==0 % difference sampled time to total time larger 10%, then resample
-                    pos_time = exp(exprnd(1/p_time,length(tmp_thickness),1)); % draw random times
-                    counter = counter+1;
-                    if counter > 1e3                 % if the algorithm cannot find a suiting age distribution draw a new thcikness distribution
-                        newtry = 0;
-                    end
-                end
-                tmp_time = dt*pos_time/sum(pos_time);   % rescale to total time dt
-
-                % The data of this section is attached on top of the data from the previous section
-                Sed_col = [[tmp_thickness,tmp_time] ; Sed_col]; % bind all data together
-            end
+            % The data of this section is attached on top of the data from the previous section
+            Sed_col = [[tmp_thickness,tmp_time] ; Sed_col]; % bind all data together
         end
 
         % Second part of the routine
@@ -290,9 +235,10 @@ for i = 1:n
         % loop indices decreases). Each part of the loop calculates the 
         % nuclide production of a given layer as well as all layers under it.
         % Each iteration is then summed with the previous one
+        Sed_col(:,3) = Depth_age_guess(end,2) - flipud(cumsum(Sed_col(:,2)));  % age of every layer in yrs
         Sed_col_gcm2 = Sed_col;  Sed_col_gcm2(:,1) = round(Sed_col(:,1).*rho);  % convert depth to gm/2 to match production rates
         section_depth_gcm2 = round(section_depth * rho);  % convert to g/cm2 to match production rate tables
-        profile = zeros(1,section_depth_gcm2);
+        profile = zeros(section_depth_gcm2,1);
         for k =  length(Sed_col):-1:1
             % For each layer temporary depth, density, time and concentration vectors are created
             % These vectors are made such that each element of the vector corresponds to 1 cm.
@@ -301,11 +247,12 @@ for i = 1:n
             
             % get mean depositional age of this layer for correction
             % scaling factor
-            if k == length(Sed_col_gcm2)
-                tmp_age   = Depth_age_guess(end,2) - cumsum(Sed_col_gcm2(k:length(Sed_col_gcm2),2))/2;
-            else
-                tmp_age   = Depth_age_guess(end,2) - (sum(Sed_col_gcm2(k:length(Sed_col_gcm2),2))+sum(Sed_col_gcm2(k+1:length(Sed_col_gcm2),2)))/2;
-            end
+            tmp_age = Sed_col(k,3);
+%             if k == length(Sed_col_gcm2)
+%                 tmp_age   = Depth_age_guess(end,2) - cumsum(Sed_col_gcm2(k:length(Sed_col_gcm2),2))/2;
+%             else
+%                 tmp_age   = Depth_age_guess(end,2) - (sum(Sed_col_gcm2(k:length(Sed_col_gcm2),2))+sum(Sed_col_gcm2(k+1:length(Sed_col_gcm2),2)))/2;
+%             end
             
             Pind = round(tmp_age/1e2)+1;  % get index of production rate column that is closest in age to tmp_age
             if Pind > round(max_age/1e2)
@@ -322,7 +269,7 @@ for i = 1:n
             end
 
             % The result is added to the production vector
-            profile((section_depth_gcm2-length(tmp_depth)+1):section_depth_gcm2) = profile((section_depth_gcm2-length(tmp_depth)+1):section_depth_gcm2) + tmp_conc';
+            profile((section_depth_gcm2-length(tmp_depth)+1):section_depth_gcm2) = profile((section_depth_gcm2-length(tmp_depth)+1):section_depth_gcm2) + tmp_conc;
         end
         
         % add production after end of deposition
