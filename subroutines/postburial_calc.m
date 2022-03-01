@@ -19,7 +19,7 @@ function Resultmodel = postburial_calc(Perr,para,Model,Prod,nuclide,n,varargin)
 %
 % Richard Ott, 2021
 
-if strcmpi(varargin{1},'plot')
+if ~isempty(varargin) && strcmpi(varargin{1},'plot')
     plotFlag = true;
 end
 
@@ -192,7 +192,7 @@ disp(['postburial production median ' name{1} ' = ' num2str(Resultmodel.Pmedian)
 disp(['postburial production quantiles ' name{1} ' = ' num2str(Resultmodel.Pquantiles(1)) ' - ' num2str(Resultmodel.Pquantiles(2))]) 
 
 %% plot results
-if plotFlag
+if exist('plotFlag','var')
     figure()
     for i = 1:n
         subplot(1,2,1)
