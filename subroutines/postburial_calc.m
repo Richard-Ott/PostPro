@@ -1,4 +1,4 @@
-function Resultmodel = postburial_calc(Perr,para,Model,Prod,nuclide,n)
+function Resultmodel = postburial_calc(Perr,para,Model,Prod,nuclide,n,varargin)
 % This function uses the production rate, and sample data to compute the
 % postburial production profiles for stratigraphic sections.
 % Input: 
@@ -12,11 +12,17 @@ function Resultmodel = postburial_calc(Perr,para,Model,Prod,nuclide,n)
 %           ProductionParas.m
 %           - nuclide: e.g. '10Be', '36Cl' etc.
 %           - n: number of forward models for MC routine
+%           - OPTIONAL: 'plot' plot time nulcide and time depth histories
 %
 % The speed and precision of the code are mainly controlled by the number
 % of runs but also the thickness of individual layers (line 79/80).
 %
 % Richard Ott, 2021
+
+if strcmpi(varargin{1},'plot')
+    plotFlag = true;
+end
+
 v2struct(para)
 v2struct(Prod)
 v2struct(Perr)
@@ -37,6 +43,10 @@ end
 
 % Initialize a progress bar to monitor the progression of the number of simulations n
 wb = waitbar(0,'Welcome to the jungle...');
+
+time  = cell(n,1);
+Npost = cell(n,1);
+deptht= cell(n,1);
 
 for i = 1:n
         % RANDOM SAMPLING ----------------------------------------------- %
@@ -98,6 +108,9 @@ for i = 1:n
         Sed_col(:,3) = Depth_age_guess(end,2) - flipud(cumsum(Sed_col(:,2)));  % age of every layer in yrs
         section_depth_gcm2 = sum(Sed_col(:,1));  % convert to g/cm2 to match production rate tables
         profile = zeros(section_depth_gcm2,1);
+        time_deposition  = nan(1,length(Sed_col));
+        N_deposition     = nan(1,length(Sed_col));
+        depth_deposition = nan(1,length(Sed_col));
         for k =  length(Sed_col):-1:1
             % For each layer temporary depth, density, time and concentration vectors are created
             tmp_depth = 1:sum(Sed_col(length(Sed_col):-1:k,1));
@@ -125,6 +138,11 @@ for i = 1:n
 
             % The result is added to the production vector
             profile((section_depth_gcm2-length(tmp_depth)+1):section_depth_gcm2) = profile((section_depth_gcm2-length(tmp_depth)+1):section_depth_gcm2) + tmp_conc;
+            
+            % save parameters for plotting
+            time_deposition(k) = tmp_age;
+            N_deposition(k)    = profile(end);
+            depth_deposition(k) = tmp_depth(end)/rho; % cm
         end
         
         % add production after end of deposition
@@ -142,6 +160,15 @@ for i = 1:n
             % add to profile and radioavtive decay
             profile = profile + postaggradation.* exp(-Depth_age_guess(1,2).*lambda);
         end
+        
+        % save parameters for plotting
+        time_deposition(1) = 0;
+        N_deposition(1)    = profile(end);
+        depth_deposition(1) = tmp_depth(end)/rho; %cm;
+        
+        time{i} = time_deposition;
+        Npost{i} = N_deposition;
+        deptht{i} = depth_deposition;
         
         PostProduction(i) = profile(end);
     % Increment progress bar
@@ -164,5 +191,25 @@ disp(['postburial production ' name{1} ' = ' num2str(Resultmodel.Pmean) ' +/- ' 
 disp(['postburial production median ' name{1} ' = ' num2str(Resultmodel.Pmedian) ' +/- ' num2str(diff(Resultmodel.Pquantiles)/2)]) 
 disp(['postburial production quantiles ' name{1} ' = ' num2str(Resultmodel.Pquantiles(1)) ' - ' num2str(Resultmodel.Pquantiles(2))]) 
 
+%% plot results
+if plotFlag
+    figure()
+    for i = 1:n
+        subplot(1,2,1)
+        plot(time{i},Npost{i},'-')
+        hold on
+        subplot(1,2,2)
+        plot(time{i},deptht{i},'-')
+        hold on
+    end
+    subplot(1,2,1)
+    title([para.name{1} ' postburial production'])
+    xlabel('time (yrs)')
+    ylabel('nuclide concentration at/g')
+    subplot(1,2,2)
+    title([para.name{1} ' burial history'])
+    xlabel('time (yrs)')
+    ylabel('depth')
+    
 end
 
