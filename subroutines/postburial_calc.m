@@ -42,7 +42,7 @@ end
         
 
 % Initialize a progress bar to monitor the progression of the number of simulations n
-wb = waitbar(0,'Welcome to the jungle...');
+wb = waitbar(0,"Opening Pandora's box...");
 
 time  = cell(n,1);
 Npost = cell(n,1);
@@ -89,8 +89,8 @@ for i = 1:n
         [r,~] = size(Intervals);
         Sed_col = [];
         for j  = 1:r                                        % loop through packages of stratigraphic section
-%             tmp_thickness = ones(round(Intervals(j,1)*rho),1);  % make 1 g/cm2 thick layers
-            tmp_thickness = 10*ones(round(Intervals(j,1)*rho/10),1);  % make 10 g/cm2 thick layers, this line makes the code a bit less accurate but 10 times faster
+            tmp_thickness = ones(round(Intervals(j,1)*rho),1);  % make 1 g/cm2 thick layers
+%             tmp_thickness = 10*ones(round(Intervals(j,1)*rho/10),1);  % make 10 g/cm2 thick layers, this line makes the code a bit less accurate but 10 times faster
             tmp_time = (Intervals(j,2)/length(tmp_thickness))* ones(length(tmp_thickness),1);   % time within each layer (yrs) 
             
             % The data of this section is attached on top of the data from the previous section
@@ -195,21 +195,22 @@ disp(['postburial production quantiles ' name{1} ' = ' num2str(Resultmodel.Pquan
 if exist('plotFlag','var')
     figure()
     for i = 1:n
-        subplot(1,2,1)
-        plot(time{i},Npost{i},'-')
-        hold on
         subplot(1,2,2)
-        plot(time{i},deptht{i},'-')
+        plot([time{i},time{i}(end)],[Npost{i},0],'Color',[0 0.4470 0.7410, 0.03])
+        hold on
+        subplot(1,2,1)
+        plot([time{i}, time{i}(end)],[deptht{i},0],'Color',[0 0.4470 0.7410, 0.03])
         hold on
     end
-    subplot(1,2,1)
-    title([para.name{1} ' postburial production'])
-    xlabel('time (yrs)')
-    ylabel('nuclide concentration at/g')
     subplot(1,2,2)
+    title([para.name{1} ' postburial'])
+    xlabel('time (yrs)')
+    ylabel([nuclide ,' (at/g)'])
+    ax = gca; % axes handle
+    ax.YAxis.Exponent = 0;
+    subplot(1,2,1)
     title([para.name{1} ' burial history'])
     xlabel('time (yrs)')
-    ylabel('depth')
-    
+    ylabel('depth (cm)')    
 end
 
