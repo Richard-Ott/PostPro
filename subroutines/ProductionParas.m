@@ -15,7 +15,7 @@ switch nuclide
         [nominal10,uncerts10] = createage1026(num);               % get basic sample info 
         sp = samppars1026(nominal10);                             % Extract the sample parameters from the sampledatavector.
         sf = scalefacs1026(sp,scaling_model);                     % get scaling factors
-        cp = comppars1026(pp,sp,sf,max_depth);                    % computed parameters
+        cp = comppars1026(pp,sp,sf,max_depth);                 % computed parameters
         
         % for all potential depths and ages calculate the production rate
         % profile. 

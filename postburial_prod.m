@@ -3,6 +3,7 @@ clear
 close all
 
 addpath '.\subroutines'
+addpath '.\InputData'
 
 % USER CHOICE ----------------------------------------------------------- %
 nuclide = '10Be';       % Choose '10Be' or '36Cl'
@@ -17,7 +18,8 @@ scaling_model = 'lm';   % choose your scaling model, nomenclature follows Cronus
 %% LOAD DATA
 Perr = Puncerts(nuclide); % load uncertainties for production parameters
 
-[Model,Para] = assignData(num,txt,burial,burialtxt,nuclide,5); % assign data
+sample = 5; % row of sample in input sheet
+[Model,Para] = assignData(num,txt,burial,burialtxt,nuclide,sample); 
 
 
 %% PRODUCTION RATES ----------------------------------------------------- %

@@ -1,4 +1,9 @@
 %
+% This is a function from CRONUS v2.1 (Marrero et al. 2016). It was
+% modified to use the scaling model as global variable to work within
+% PostPro
+% Richard Ott, 2022
+
 % pp=physpars()
 %
 % Sets up basic physics parameters for all nuclides. Does not require
