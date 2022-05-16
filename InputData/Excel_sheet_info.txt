@@ -1,0 +1,12 @@
+The 2 CRONUS input excel files contain 4 sheets each.
+
+Matlab Postburial - This sheet is used as input for PostPro postburial calculations
+
+Matlab Erate uncorrected - This sheet is used an input to calculate an erosion rate without
+postburial correction within Cronus v2.1
+
+Matlab Erate model 1- This sheet is used an input to calculate an erosion rate with postburial
+correciton from model 1 in Ott et al. 2022.
+
+Matlab Erate model 2- This sheet is used an input to calculate an erosion rate with postburial
+correction from model 2 in Ott et al. 2022.

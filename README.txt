@@ -19,8 +19,8 @@ The postburial_prod.m script illustrates how to use the subroutines.
 Please report bugs to richard.ott1900@gmail.com
 
 Cite as:
-Ott, Richard (2022): PostPro -POSTburial PROduction for cosmogenic nuclide samples.
-V. 1.0. GFZ Data Services. XXXXXXXXXX
+Ott, Richard (2022): POST PRO - POSTburial PROduction for cosmogenic nuclide 
+samples. GFZ Data Services. https://doi.org/10.5880/GFZ.3.3.2022.002
 
 related references:
 
