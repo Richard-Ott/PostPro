@@ -1,5 +1,10 @@
-%%%%%%% POST PRO - POSTburial PROduction for cosmogenic nuclide samples %%%%%%%%
-
+.______     ______        _______.___________..______   .______        ______   
+|   _  \   /  __  \      /       |           ||   _  \  |   _  \      /  __  \  
+|  |_)  | |  |  |  |    |   (----`---|  |----`|  |_)  | |  |_)  |    |  |  |  | 
+|   ___/  |  |  |  |     \   \       |  |     |   ___/  |      /     |  |  |  | 
+|  |      |  `--'  | .----)   |      |  |     |  |      |  |\  \----.|  `--'  | 
+| _|       \______/  |_______/       |__|     | _|      | _| `._____| \______/  
+                                                                                
 This code package calculates postburial production for samples with complex
 time-depth burial histories. This code was developed for Ott et al. 2022 (see
 citation below). Production rates are calculated using CRONUScalc v2.1 (Marrero
