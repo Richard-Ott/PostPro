@@ -14,7 +14,8 @@ To run the code you need to input your sample data through excel spreadsheets.
 The nomenclature follows the CRONUScalc input for the nuclide samples. An
 additional excel file with the parameters of the burial models (time-depth
 constraints) needs to be provided.
-To run the code CRONUScalc v2.1 needs to be in your Matlab path.
+To run the code CRONUScalc v2.1 needs to be in your Matlab path, which can be 
+downloaded here https://bitbucket.org/cronusearth/cronus-calc/src/v2.1/
 
 The InputData folder contains all data from Ott et al. 2022 and can be used to
 as an example of the input formatting.
