@@ -196,10 +196,10 @@ if exist('plotFlag','var')
     figure()
     for i = 1:n
         subplot(1,2,2)
-        plot([time{i},time{i}(end)],[Npost{i},0],'Color',[0 0.4470 0.7410, 0.05])
+        plot([time{i},time{i}(end)],[Npost{i},0],'Color',[0 0.4470 0.7410, 0.03])
         hold on
         subplot(1,2,1)
-        plot([time{i}, time{i}(end)],[deptht{i},0],'Color',[0 0.4470 0.7410, 0.05])
+        plot([time{i}, time{i}(end)],[deptht{i},0],'Color',[0 0.4470 0.7410, 0.03])
         hold on
     end
     subplot(1,2,2)

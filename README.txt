@@ -30,7 +30,10 @@ samples. GFZ Data Services. https://doi.org/10.5880/GFZ.3.3.2022.002
 
 related references:
 
-Ott et al. 2022 submitted.
+Ott, R. F., Scherler, D., Wegmann, K. W., D’Arcy, M. K., Pope, Richard J., Ivy‐Ochs, S.,
+et al. (2022): Paleo‐denudation rates suggest variations in runoff drove aggradation 
+during last glacial cycle, Crete, Greece. Earth Surface Processes and Landforms. 
+10.1002/esp.5492
 
 Marrero, S.M., Phillips, F.M., Borchers, B., Lifton, N., Aumer, R., and Balco, G.
 , 2016, Cosmogenic nuclide systematics and the CRONUScalc program: Quaternary
